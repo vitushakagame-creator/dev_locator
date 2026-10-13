@@ -25,12 +25,16 @@
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:360px;overflow:auto}.item{padding:9px;border:1px solid #555;border-radius:8px;background:#333;color:#fff;text-align:left;cursor:pointer}.item.active{border-color:#9bd45c}.item:disabled{opacity:.42;cursor:not-allowed}
 .mini{display:inline-block;width:32px;height:32px;border-width:2px;vertical-align:middle;margin-right:6px}
 .notice{font-size:12px;color:#aaa;margin-top:10px}
+.music-panel{margin-top:14px;padding:12px;border:2px solid #638b3e;border-radius:10px;background:#20291b;display:flex;flex-direction:column;gap:7px;align-items:flex-start}.music-button{width:auto;min-width:220px;margin-top:0;background:#426b28;border-color:#8fbe63;font-size:16px;font-weight:bold}.music-button:hover{background:#527f34}
+#levelProcess .upgrade{min-width:170px}
+#saveStatus{font-weight:bold}
 @media(max-width:720px){.game{grid-template-columns:1fr}.stage{min-height:390px}.block{width:160px;height:160px}}
 </style>
 </head>
 <body><div id="app"><div class="game">
 <section class="panel">
-<div class="top"><div><div class="stat">⛏ <span id="coins">0</span> добычи</div><div class="muted">Кликай по блоку и проходи уровни кирок</div></div><div><div class="stat">⚡ <span id="power">1</span>/клик</div><div class="muted">Авто: <span id="auto">0</span>/сек</div><button id="musicBtn" type="button" class="upgrade" style="width:auto;padding:8px 12px;margin-top:8px">♫ Включить музыку</button><div class="muted" id="musicStatus">Музыка выключена</div></div></div>
+<div class="top"><div><div class="stat">⛏ <span id="coins">0</span> добычи</div><div class="muted">Кликай по блоку и проходи уровни кирок</div></div><div><div class="stat">⚡ <span id="power">1</span>/клик</div><div class="muted">Авто: <span id="auto">0</span>/сек</div></div></div>
+<div class="music-panel"><span id="musicStatus">Музыка выключена</span><button type="button" id="musicBtn" class="upgrade music-button">♫ Включить музыку</button><div class="muted">15 секунд играет · 15 секунд пауза · повторяется автоматически</div></div>
 <div class="stage"><button id="main" class="block grass" aria-label="Добыть блок"></button><h2 id="name">Картошка</h2><div class="muted"><span id="tool">Картошка</span> · уровень <span id="level">1</span> · добыто <span id="owned">0</span></div></div>
 </section>
 <aside class="panel">
@@ -41,43 +45,19 @@
 <button id="nextBtn" class="upgrade">🔓 Следующий инструмент<br><span class="muted">цена <b id="toolCost">50</b></span></button>
 <h2>Все руды и блоки</h2><div id="items" class="grid"></div>
 <div class="notice">Руды разделены по типам: Overworld, Nether и редкие ресурсы. Торты тоже можно открывать.</div>
-</aside></div></div>
+</div></div></div>
+<section class="panel" id="levelProcess" style="margin-top:16px">
+  <div class="top" style="align-items:center"><div><h2 style="margin:0 0 6px">Level Process — сохранения</h2><div class="muted">Прогресс сохраняется автоматически после действий и при закрытии страницы.</div></div><div id="saveStatus" class="muted" role="status">Проверка сохранения…</div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+    <button type="button" id="saveNowBtn" class="upgrade" style="width:auto;margin:0">💾 Сохранить сейчас</button>
+    <button type="button" id="downloadSaveBtn" class="upgrade" style="width:auto;margin:0">⬇ Скачать сохранение</button>
+    <button type="button" id="loadSaveBtn" class="upgrade" style="width:auto;margin:0">⬆ Загрузить сохранение</button>
+    <input id="saveFileInput" type="file" accept=".json,application/json" hidden>
+  </div>
+  <div class="notice">Автосохранение хранится в этом браузере. Чтобы перенести прогресс на другой компьютер, скачай файл сохранения и загрузи его там.</div>
+</section>
 <audio id="bgMusic" src="minecraft-music.mp3" preload="auto"></audio>
 <script>
-// Музыка: 15 секунд звучит, 15 секунд пауза, затем тот же трек запускается снова.
-const musicEl=document.getElementById('bgMusic');
-const musicButton=document.getElementById('musicBtn');
-const musicStatus=document.getElementById('musicStatus');
-let musicEnabled=false, musicTimer=null, musicStopTimer=null;
-function stopMusic(){
-  musicEnabled=false;
-  if(musicTimer!==null) clearTimeout(musicTimer);
-  if(musicStopTimer!==null) clearTimeout(musicStopTimer);
-  musicTimer=null; musicStopTimer=null;
-  musicEl.pause(); musicEl.currentTime=0;
-  musicButton.textContent='♫ Включить музыку'; musicStatus.textContent='Музыка выключена';
-}
-async function playMusicCycle(){
-  if(!musicEnabled) return;
-  try {
-    musicEl.currentTime=0;
-    await musicEl.play();
-    musicButton.textContent='♫ Выключить музыку';
-    musicStatus.textContent='Музыка играет 15 секунд, затем пауза 15 секунд';
-    musicStopTimer=setTimeout(()=>{
-      musicEl.pause(); musicEl.currentTime=0;
-      if(musicEnabled) musicTimer=setTimeout(playMusicCycle,15000);
-    },15000);
-  } catch(err) {
-    musicStatus.textContent='Не найден minecraft-music.mp3 — положи MP3 рядом с index.html';
-    stopMusic();
-    musicStatus.textContent='Не найден minecraft-music.mp3 — положи MP3 рядом с index.html';
-  }
-}
-musicButton.addEventListener('click',()=>{
-  if(musicEnabled){stopMusic();}
-  else {musicEnabled=true;musicButton.textContent='♫ Выключить музыку';playMusicCycle();}
-});
 const tools=[
 ['Картошка','Самый первый инструмент',1,1],['Деревянная кирка','Обычная деревянная кирка',2,1],['Улучшенная деревянная кирка','Та же палка, но усиленная',4,2],['Каменная кирка','Каменный уровень',7,3],['Улучшенная каменная кирка','Усиленная версия каменной',11,4],
 ['Железная кирка','Железный уровень',18,5],['Улучшенная железная кирка','Вторая железная версия',28,6],['Золотая кирка','Золотой уровень',45,7],['Улучшенная золотая кирка','Усиленная золотая версия',65,8],['Алмазная кирка','Алмазный уровень',95,9],['Улучшенная алмазная кирка','Вторая алмазная версия',140,10],
@@ -92,19 +72,89 @@ const blocks=[
 ['Торт','cake',35],['Клубничный торт','berry',45],['Черничный торт','berry',55],['Малиновый торт','berry',65],['Ежевичный торт','berry',75],['Вишнёвый торт','berry',85],['Сладкоягодный торт','berry',100],['Светоягодный торт','berry',120],['Дынный торт','cake',140],['Тыквенный торт','cake',160],['Торт из хорус-фрукта','berry',190]
 ];
 let coins=0,power=1,auto=0,toolIndex=0,blockIndex=0,owned=0,powerCost=10,autoCost=100,toolCost=50;
-const $=id=>document.getElementById(id),fmt=x=>Math.floor(x).toLocaleString('ru-RU');
+const $=id=>document.getElementById(id),fmt=x=>Math.floor(Number.isFinite(x)?x:0).toLocaleString('ru-RU');
+const SAVE_KEY='minecraftClickerLevelProcess_v1';
+let saveMessageTimer=null;
+function getSaveData(){return {version:1,coins,power,auto,toolIndex,blockIndex,owned,powerCost,autoCost,toolCost,savedAt:new Date().toISOString()};}
+function setSaveStatus(message){const el=$('saveStatus');if(el)el.textContent=message;}
+function saveProgress(showMessage=false){
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(getSaveData()));setSaveStatus('✓ Автосохранено');if(showMessage)setSaveStatus('✓ Прогресс сохранён');return true;}
+  catch(e){setSaveStatus('Не удалось сохранить в браузере');return false;}
+}
+function applySave(data){
+  if(!data||typeof data!=='object')throw new Error('Неверный файл сохранения');
+  const num=(v,def,min=0)=>{v=Number(v);return Number.isFinite(v)?Math.min(1e100,Math.max(min,v)):def;};
+  coins=num(data.coins,0);power=num(data.power,1,1);auto=Math.floor(num(data.auto,0));
+  toolIndex=Math.min(tools.length-1,Math.floor(num(data.toolIndex,0)));
+  blockIndex=Math.min(blocks.length-1,Math.floor(num(data.blockIndex,0)));
+  // Only blocks reached through sequential progression may be selected.
+  blockIndex=Math.min(blockIndex,Math.min(blocks.length-1,toolIndex));
+  owned=Math.floor(num(data.owned,0));powerCost=num(data.powerCost,10,1);autoCost=num(data.autoCost,100,1);toolCost=num(data.toolCost,50,1);
+  if(!Number.isFinite(coins)||!Number.isFinite(power))throw new Error('Сохранение содержит некорректные числа');
+  render();saveProgress();setSaveStatus('✓ Сохранение загружено');
+}
+function loadProgress(){
+  try{const raw=localStorage.getItem(SAVE_KEY);if(raw){applySave(JSON.parse(raw));setSaveStatus('✓ Прогресс восстановлен');return true;}}
+  catch(e){setSaveStatus('Сохранение повреждено — начата новая игра');}
+  return false;
+}
+function downloadProgress(){
+  const blob=new Blob([JSON.stringify(getSaveData(),null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='Level-Process-save.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);setSaveStatus('✓ Файл сохранения скачан');
+}
+$('saveNowBtn').addEventListener('click',()=>saveProgress(true));
+$('downloadSaveBtn').addEventListener('click',downloadProgress);
+$('loadSaveBtn').addEventListener('click',()=>$('saveFileInput').click());
+$('saveFileInput').addEventListener('change',async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{applySave(JSON.parse(await file.text()));}catch(err){setSaveStatus('Ошибка: файл сохранения не подходит');alert('Не удалось загрузить сохранение. Выбери файл Level-Process-save.json.');}e.target.value='';});
+window.addEventListener('beforeunload',()=>saveProgress());
+const music=$('bgMusic');
+const musicBtn=$('musicBtn');
+const musicStatus=$('musicStatus');
+let musicEnabled=false, musicTimer=null;
+function stopMusic(){
+  musicEnabled=false;
+  if(musicTimer!==null){clearTimeout(musicTimer);musicTimer=null;}
+  music.pause();
+  try{music.currentTime=0;}catch(e){}
+  musicBtn.textContent='♫ Включить музыку';
+  musicStatus.textContent='Музыка выключена';
+}
+function playMusicCycle(){
+  if(!musicEnabled)return;
+  music.currentTime=0;
+  music.play().then(()=>{
+    if(!musicEnabled){music.pause();return;}
+    musicBtn.textContent='♫ Выключить музыку';
+    musicStatus.textContent='Музыка играет (15 секунд)';
+    musicTimer=setTimeout(()=>{
+      music.pause();
+      try{music.currentTime=0;}catch(e){}
+      if(!musicEnabled)return;
+      musicStatus.textContent='Пауза (15 секунд)';
+      musicTimer=setTimeout(playMusicCycle,15000);
+    },15000);
+  }).catch(()=>{
+    musicEnabled=false;
+    if(musicTimer!==null){clearTimeout(musicTimer);musicTimer=null;}
+    musicBtn.textContent='♫ Включить музыку';
+    musicStatus.textContent='Файл minecraft-music.mp3 не найден или не поддерживается';
+  });
+}
+musicBtn.addEventListener('click',()=>{if(musicEnabled)stopMusic();else{musicEnabled=true;playMusicCycle();}});
+
 function render(){
  const t=tools[toolIndex],b=blocks[blockIndex];
  $('coins').textContent=fmt(coins);$('power').textContent=power;$('auto').textContent=auto;$('name').textContent=b[0];$('tool').textContent=t[0];$('tool2').textContent=t[0];$('toolDesc').textContent=t[1];$('level').textContent=blockIndex+1;$('owned').textContent=owned;
  $('powerCost').textContent=fmt(powerCost);$('autoCost').textContent=fmt(autoCost);$('toolCost').textContent=fmt(toolCost);$('main').className='block '+b[1];
- $('items').innerHTML=blocks.map((x,i)=>`<button class="item ${i===blockIndex?'active':''}" ${i>toolIndex+2?'disabled':''} data-i="${i}"><span class="mini block ${x[1]}"></span><b>${x[0]}</b><div class="muted">×${x[2]}</div></button>`).join('');
- document.querySelectorAll('.item').forEach(e=>e.onclick=()=>{blockIndex=+e.dataset.i;owned=0;render()});
+ $('items').innerHTML=blocks.map((x,i)=>`<button class="item ${i===blockIndex?'active':''}" ${i>toolIndex?'disabled':''} data-i="${i}"><span class="mini block ${x[1]}"></span><b>${x[0]}</b><div class="muted">×${x[2]}</div></button>`).join('');
+ document.querySelectorAll('.item').forEach(e=>e.onclick=()=>{const next=Number(e.dataset.i);if(next<=toolIndex){blockIndex=next;owned=0;render()}});
+ saveProgress();
  $('nextBtn').disabled=toolIndex>=tools.length-1;
 }
-$('main').onclick=()=>{const b=blocks[blockIndex],t=tools[toolIndex];coins+=b[2]*power*t[2];owned++;if(toolIndex>=11)coins+=auto*2;render()};
-$('powerBtn').onclick=()=>{if(coins>=powerCost){coins-=powerCost;power++;powerCost=Math.ceil(powerCost*1.55);render()}};
-$('autoBtn').onclick=()=>{if(coins>=autoCost){coins-=autoCost;auto++;autoCost=Math.ceil(autoCost*1.75);render()}};
-$('nextBtn').onclick=()=>{if(toolIndex<tools.length-1&&coins>=toolCost){coins-=toolCost;toolIndex++;power=tools[toolIndex][2];toolCost=Math.ceil(toolCost*1.7);render()}};
-setInterval(()=>{if(auto){coins+=auto*blocks[blockIndex][2]*Math.max(1,tools[toolIndex][2]);render()}},1000);
-render();
+$('main').onclick=()=>{const b=blocks[blockIndex],t=tools[toolIndex];const gain=b[2]*power*t[2];if(Number.isFinite(gain)&&gain>0)coins=Math.min(1e100,coins+gain);owned=Math.min(Number.MAX_SAFE_INTEGER,owned+1);if(toolIndex>=11)coins=Math.min(1e100,coins+auto*2);render()};
+$('powerBtn').onclick=()=>{if(coins>=powerCost&&power<1e100){coins=Math.max(0,coins-powerCost);power=Math.min(1e100,power+1);powerCost=Math.min(1e100,Math.ceil(powerCost*1.55));render()}};
+$('autoBtn').onclick=()=>{if(coins>=autoCost&&auto<Number.MAX_SAFE_INTEGER){coins=Math.max(0,coins-autoCost);auto++;autoCost=Math.min(1e100,Math.ceil(autoCost*1.75));render()}};
+$('nextBtn').onclick=()=>{if(toolIndex<tools.length-1&&coins>=toolCost){coins=Math.max(0,coins-toolCost);toolIndex++;power=tools[toolIndex][2];toolCost=Math.min(1e100,Math.ceil(toolCost*1.7));render()}};
+setInterval(()=>{if(auto){const gain=auto*blocks[blockIndex][2]*Math.max(1,tools[toolIndex][2]);if(Number.isFinite(gain)&&gain>0)coins=Math.min(1e100,coins+gain);render()}},1000);
+if(!loadProgress())render();
+setInterval(()=>saveProgress(),5000);
 </script></body></html>

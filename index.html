@@ -30,7 +30,7 @@
 </head>
 <body><div id="app"><div class="game">
 <section class="panel">
-<div class="top"><div><div class="stat">⛏ <span id="coins">0</span> добычи</div><div class="muted">Кликай по блоку и проходи уровни кирок</div></div><div><div class="stat">⚡ <span id="power">1</span>/клик</div><div class="muted">Авто: <span id="auto">0</span>/сек</div></div></div>
+<div class="top"><div><div class="stat">⛏ <span id="coins">0</span> добычи</div><div class="muted">Кликай по блоку и проходи уровни кирок</div></div><div><div class="stat">⚡ <span id="power">1</span>/клик</div><div class="muted">Авто: <span id="auto">0</span>/сек</div><button id="musicBtn" type="button" class="upgrade" style="width:auto;padding:8px 12px;margin-top:8px">♫ Включить музыку</button><div class="muted" id="musicStatus">Музыка выключена</div></div></div>
 <div class="stage"><button id="main" class="block grass" aria-label="Добыть блок"></button><h2 id="name">Картошка</h2><div class="muted"><span id="tool">Картошка</span> · уровень <span id="level">1</span> · добыто <span id="owned">0</span></div></div>
 </section>
 <aside class="panel">
@@ -39,11 +39,45 @@
 <button id="powerBtn" class="upgrade">⛏ Улучшить инструмент<br><span class="muted">+1 сила · цена <b id="powerCost">10</b></span></button>
 <button id="autoBtn" class="upgrade">⚙ Автоматическая добыча<br><span class="muted">+1 блок/сек · цена <b id="autoCost">100</b></span></button>
 <button id="nextBtn" class="upgrade">🔓 Следующий инструмент<br><span class="muted">цена <b id="toolCost">50</b></span></button>
-<button id="blockBuyBtn" class="upgrade">🧱 Купить следующий блок<br><span class="muted">Откроет следующий блок · цена <b id="blockCost">25</b></span></button>
 <h2>Все руды и блоки</h2><div id="items" class="grid"></div>
 <div class="notice">Руды разделены по типам: Overworld, Nether и редкие ресурсы. Торты тоже можно открывать.</div>
 </aside></div></div>
+<audio id="bgMusic" src="minecraft-music.mp3" preload="auto"></audio>
 <script>
+// Музыка: 15 секунд звучит, 15 секунд пауза, затем тот же трек запускается снова.
+const musicEl=document.getElementById('bgMusic');
+const musicButton=document.getElementById('musicBtn');
+const musicStatus=document.getElementById('musicStatus');
+let musicEnabled=false, musicTimer=null, musicStopTimer=null;
+function stopMusic(){
+  musicEnabled=false;
+  if(musicTimer!==null) clearTimeout(musicTimer);
+  if(musicStopTimer!==null) clearTimeout(musicStopTimer);
+  musicTimer=null; musicStopTimer=null;
+  musicEl.pause(); musicEl.currentTime=0;
+  musicButton.textContent='♫ Включить музыку'; musicStatus.textContent='Музыка выключена';
+}
+async function playMusicCycle(){
+  if(!musicEnabled) return;
+  try {
+    musicEl.currentTime=0;
+    await musicEl.play();
+    musicButton.textContent='♫ Выключить музыку';
+    musicStatus.textContent='Музыка играет 15 секунд, затем пауза 15 секунд';
+    musicStopTimer=setTimeout(()=>{
+      musicEl.pause(); musicEl.currentTime=0;
+      if(musicEnabled) musicTimer=setTimeout(playMusicCycle,15000);
+    },15000);
+  } catch(err) {
+    musicStatus.textContent='Не найден minecraft-music.mp3 — положи MP3 рядом с index.html';
+    stopMusic();
+    musicStatus.textContent='Не найден minecraft-music.mp3 — положи MP3 рядом с index.html';
+  }
+}
+musicButton.addEventListener('click',()=>{
+  if(musicEnabled){stopMusic();}
+  else {musicEnabled=true;musicButton.textContent='♫ Выключить музыку';playMusicCycle();}
+});
 const tools=[
 ['Картошка','Самый первый инструмент',1,1],['Деревянная кирка','Обычная деревянная кирка',2,1],['Улучшенная деревянная кирка','Та же палка, но усиленная',4,2],['Каменная кирка','Каменный уровень',7,3],['Улучшенная каменная кирка','Усиленная версия каменной',11,4],
 ['Железная кирка','Железный уровень',18,5],['Улучшенная железная кирка','Вторая железная версия',28,6],['Золотая кирка','Золотой уровень',45,7],['Улучшенная золотая кирка','Усиленная золотая версия',65,8],['Алмазная кирка','Алмазный уровень',95,9],['Улучшенная алмазная кирка','Вторая алмазная версия',140,10],
@@ -57,21 +91,16 @@ const blocks=[
 ['Камень','stone',1],['Дерево','grass',2],['Дёрн','grass',2],
 ['Торт','cake',35],['Клубничный торт','berry',45],['Черничный торт','berry',55],['Малиновый торт','berry',65],['Ежевичный торт','berry',75],['Вишнёвый торт','berry',85],['Сладкоягодный торт','berry',100],['Светоягодный торт','berry',120],['Дынный торт','cake',140],['Тыквенный торт','cake',160],['Торт из хорус-фрукта','berry',190]
 ];
-let coins=0,power=1,auto=0,toolIndex=0,blockIndex=0,unlockedBlocks=1,owned=0,powerCost=10,autoCost=100,toolCost=50,blockCost=25;
+let coins=0,power=1,auto=0,toolIndex=0,blockIndex=0,owned=0,powerCost=10,autoCost=100,toolCost=50;
 const $=id=>document.getElementById(id),fmt=x=>Math.floor(x).toLocaleString('ru-RU');
 function render(){
  const t=tools[toolIndex],b=blocks[blockIndex];
  $('coins').textContent=fmt(coins);$('power').textContent=power;$('auto').textContent=auto;$('name').textContent=b[0];$('tool').textContent=t[0];$('tool2').textContent=t[0];$('toolDesc').textContent=t[1];$('level').textContent=blockIndex+1;$('owned').textContent=owned;
  $('powerCost').textContent=fmt(powerCost);$('autoCost').textContent=fmt(autoCost);$('toolCost').textContent=fmt(toolCost);$('main').className='block '+b[1];
- const nextBlock=blocks[unlockedBlocks];
- $('blockCost').textContent=nextBlock?fmt(blockCost):'ВСЁ ОТКРЫТО';
- $('blockBuyBtn').disabled=!nextBlock||coins<blockCost;
- $('blockBuyBtn').innerHTML=nextBlock?`🧱 Купить следующий блок<br><span class="muted">${nextBlock[0]} · цена <b id="blockCost">${fmt(blockCost)}</b></span>`:'🧱 Все блоки открыты';
- $('items').innerHTML=blocks.map((x,i)=>`<button class="item ${i===blockIndex?'active':''}" ${i>=unlockedBlocks?'disabled':''} data-i="${i}"><span class="mini block ${x[1]}"></span><b>${x[0]}</b><div class="muted">${i<unlockedBlocks?'×'+x[2]:'🔒 Купить по порядку'}</div></button>`).join('');
- document.querySelectorAll('.item').forEach(e=>e.onclick=()=>{const i=+e.dataset.i;if(i<unlockedBlocks){blockIndex=i;owned=0;render()}});
+ $('items').innerHTML=blocks.map((x,i)=>`<button class="item ${i===blockIndex?'active':''}" ${i>toolIndex+2?'disabled':''} data-i="${i}"><span class="mini block ${x[1]}"></span><b>${x[0]}</b><div class="muted">×${x[2]}</div></button>`).join('');
+ document.querySelectorAll('.item').forEach(e=>e.onclick=()=>{blockIndex=+e.dataset.i;owned=0;render()});
  $('nextBtn').disabled=toolIndex>=tools.length-1;
 }
-$('blockBuyBtn').onclick=()=>{if(unlockedBlocks<blocks.length&&coins>=blockCost){coins-=blockCost;unlockedBlocks++;blockIndex=unlockedBlocks-1;owned=0;blockCost=Math.ceil(blockCost*1.65+blocks[unlockedBlocks-1][2]*3);render()}};
 $('main').onclick=()=>{const b=blocks[blockIndex],t=tools[toolIndex];coins+=b[2]*power*t[2];owned++;if(toolIndex>=11)coins+=auto*2;render()};
 $('powerBtn').onclick=()=>{if(coins>=powerCost){coins-=powerCost;power++;powerCost=Math.ceil(powerCost*1.55);render()}};
 $('autoBtn').onclick=()=>{if(coins>=autoCost){coins-=autoCost;auto++;autoCost=Math.ceil(autoCost*1.75);render()}};
